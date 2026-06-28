@@ -26,13 +26,13 @@ fn proceed(option: &usize) -> Result<PathBuf, Box<dyn Error>>{
                 .with_default(".")
                 .prompt()
                 .unwrap_or_else(|_| String::from("."));
-            PathBuf::from(path_str)
+            PathBuf::from(path_str.trim())
         },
         2 => browse_path(current_dir),
         _ => return Err("Invalid option".into())
     };
 
-    if target_path.is_dir() {
+    if !target_path.is_file() {
         target_path = browse_path(target_path);
     }
 
