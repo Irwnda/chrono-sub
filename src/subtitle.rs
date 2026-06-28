@@ -3,6 +3,50 @@ use std::sync::LazyLock;
 use inquire::{Select, Text, validator::Validation};
 use regex::Regex;
 
+#[derive(Debug)]
+struct SubTime {
+    hours: u64,
+    minutes: u64,
+    seconds: u64,
+    milliseconds: u64,
+}
+
+impl SubTime {
+    fn from_str(time_str: &str) -> Option<Self> {
+        let clean = time_str.trim();
+        let parts: Vec<&str> = clean.split('.').collect();
+
+        if parts.len() != 2 { return None };
+
+        let hms_parts: Vec<&str> = parts[0].split(':').collect();
+        if hms_parts.len() != 3 { return None };
+
+        let hours = hms_parts[0].parse::<u64>().ok()?;
+        let minutes = hms_parts[1].parse::<u64>().ok()?;
+        let seconds = hms_parts[2].parse::<u64>().ok()?;
+
+        let milliseconds = {
+            let mut ms_str = parts[1].to_string();
+            ms_str.push_str("000");
+            ms_str.truncate(3);
+            ms_str.parse::<u64>().ok()?
+        };
+
+        Some(Self {
+            hours,
+            minutes,
+            seconds,
+            milliseconds,
+        })
+    }
+
+    fn to_millisecond(&self) -> u64 {
+        let total_s = (self.hours * 60 * 60) + (self.minutes * 60) + self.seconds;
+
+        total_s * 1000 + self.milliseconds
+    }
+}
+
 pub fn process_file(file: PathBuf) {
     let direction_options = vec![
         "Slower (Delay subtitles / Shift Forward / +Time)",
@@ -18,38 +62,15 @@ pub fn process_file(file: PathBuf) {
 
     println!("Adjusting by {}...", time_adjustment);
 
-    let offset_ms = match parse_time_to_ms(&time_adjustment) {
-        Some(ms) => if direction == 0 { ms } else { -ms },
+    let sub_time = match SubTime::from_str(&time_adjustment) {
+        Some(st) => st,
         None => {
             println!("❌ Invalid time format entered. Exiting.");
             return;
         }
     };
-}
 
-fn parse_time_to_ms(time: &str) -> Option<i64> {
-    let clean = time.trim();
-    let parts: Vec<&str> = clean.split('.').collect();
-
-    if parts.len() != 2 { return None };
-
-    let hms_parts: Vec<&str> = parts[0].split(':').collect();
-    if hms_parts.len() != 3 { return None };
-
-    let hours = hms_parts[0].parse::<i64>().ok()?;
-    let minutes = hms_parts[1].parse::<i64>().ok()?;
-    let seconds = hms_parts[2].parse::<i64>().ok()?;
-
-    let milli_seconds = {
-        let mut ms_str = parts[1].to_string();
-        ms_str.push_str("000");
-        ms_str.truncate(3);
-        ms_str.parse::<i64>().ok()?
-    };
-
-    let total_s = (hours * 60*60) + (minutes * 60) + seconds;
-
-    Some(total_s * 1000 + milli_seconds)
+    let offset_ms = sub_time.to_millisecond();
 }
 
 fn adjustment_duration() -> String {
@@ -79,82 +100,96 @@ fn validate_time(time: &str) -> bool {
 mod tests {
     use super::*;
 
-    // ── parse_time_to_ms ─────────────────────────────────────────────────────
+    fn parse(s: &str) -> Option<u64> {
+        SubTime::from_str(s).map(|st| st.to_millisecond())
+    }
+
+    // ── SubTime::from_str + to_millisecond ───────────────────────────────────
 
     #[test]
     fn parse_time_one_hour() {
-        assert_eq!(parse_time_to_ms("01:00:00.000"), Some(3_600_000));
+        assert_eq!(parse("01:00:00.000"), Some(3_600_000));
     }
 
     #[test]
     fn parse_time_one_minute() {
-        assert_eq!(parse_time_to_ms("00:01:00.000"), Some(60_000));
+        assert_eq!(parse("00:01:00.000"), Some(60_000));
     }
 
     #[test]
     fn parse_time_one_second() {
-        assert_eq!(parse_time_to_ms("00:00:01.000"), Some(1_000));
+        assert_eq!(parse("00:00:01.000"), Some(1_000));
     }
 
     #[test]
     fn parse_time_milliseconds_only() {
-        assert_eq!(parse_time_to_ms("00:00:00.500"), Some(500));
+        assert_eq!(parse("00:00:00.500"), Some(500));
     }
 
     #[test]
     fn parse_time_mixed_values() {
-        let expected = (1 * 3600 + 23 * 60 + 45) * 1000 + 678;
-        assert_eq!(parse_time_to_ms("01:23:45.678"), Some(expected));
+        let expected = (1 * 3600 + 23 * 60 + 45) * 1_000 + 678;
+        assert_eq!(parse("01:23:45.678"), Some(expected));
     }
 
     #[test]
     fn parse_time_zero() {
-        assert_eq!(parse_time_to_ms("00:00:00.000"), Some(0));
+        assert_eq!(parse("00:00:00.000"), Some(0));
     }
 
     #[test]
     fn parse_time_trims_whitespace() {
-        assert_eq!(parse_time_to_ms("  00:00:01.000  "), Some(1_000));
+        assert_eq!(parse("  00:00:01.000  "), Some(1_000));
     }
 
     #[test]
     fn parse_time_two_digit_ms_pads_correctly() {
-        assert_eq!(parse_time_to_ms("00:00:00.50"), Some(500));
+        assert_eq!(parse("00:00:00.50"), Some(500));
     }
 
     #[test]
     fn parse_time_one_digit_ms_pads_correctly() {
-        assert_eq!(parse_time_to_ms("00:00:00.5"), Some(500));
+        assert_eq!(parse("00:00:00.5"), Some(500));
     }
 
     #[test]
     fn parse_time_empty_string_returns_none() {
-        assert_eq!(parse_time_to_ms(""), None);
+        assert_eq!(parse(""), None);
     }
 
     #[test]
     fn parse_time_no_dot_returns_none() {
-        assert_eq!(parse_time_to_ms("00:00:01"), None);
+        assert_eq!(parse("00:00:01"), None);
     }
 
     #[test]
     fn parse_time_wrong_hms_parts_returns_none() {
-        assert_eq!(parse_time_to_ms("00:01.000"), None);
+        assert_eq!(parse("00:01.000"), None);
     }
 
     #[test]
     fn parse_time_non_numeric_returns_none() {
-        assert_eq!(parse_time_to_ms("ab:00:00.000"), None);
-        assert_eq!(parse_time_to_ms("00:cd:00.000"), None);
-        assert_eq!(parse_time_to_ms("00:00:ef.000"), None);
-        assert_eq!(parse_time_to_ms("00:00:00.xyz"), None);
+        assert_eq!(parse("ab:00:00.000"), None);
+        assert_eq!(parse("00:cd:00.000"), None);
+        assert_eq!(parse("00:00:ef.000"), None);
+        assert_eq!(parse("00:00:00.xyz"), None);
     }
 
     #[test]
     fn parse_time_multiple_dots_returns_none() {
-        assert_eq!(parse_time_to_ms("00:00:01.5.0"), None);
+        assert_eq!(parse("00:00:01.5.0"), None);
     }
 
+    // ── SubTime fields ───────────────────────────────────────────────────────
+
+    #[test]
+    fn from_str_populates_fields_correctly() {
+        let st = SubTime::from_str("01:23:45.678").unwrap();
+        assert_eq!(st.hours, 1);
+        assert_eq!(st.minutes, 23);
+        assert_eq!(st.seconds, 45);
+        assert_eq!(st.milliseconds, 678);
+    }
 
     // ── validate_time ────────────────────────────────────────────────────────
 
