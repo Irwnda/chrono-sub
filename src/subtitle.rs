@@ -45,6 +45,28 @@ impl SubTime {
 
         total_s * 1000 + self.milliseconds
     }
+
+    fn from_millisecond(ms: u64) -> Self {
+        let total_s = ms / 1000;
+        let hours = total_s / 3600;
+        let minutes = (total_s % 3600) / 60;
+        let seconds = total_s % 60;
+        let milliseconds = ms % 1000;
+
+        Self { hours, minutes, seconds, milliseconds }
+    }
+
+    fn add(&self, other: SubTime) -> Self {
+        Self::from_millisecond(self.to_millisecond() + other.to_millisecond())
+    }
+
+    fn sub(&self, other: SubTime) -> Result<Self, String> {
+        if self.to_millisecond() < other.to_millisecond() {
+            return Err(String::from("Subtitle timestamp cannot be negative"));
+        }
+
+        Ok(Self::from_millisecond(self.to_millisecond() - other.to_millisecond()))
+    }
 }
 
 pub fn process_file(file: PathBuf) {
@@ -69,8 +91,6 @@ pub fn process_file(file: PathBuf) {
             return;
         }
     };
-
-    let offset_ms = sub_time.to_millisecond();
 }
 
 fn adjustment_duration() -> String {
@@ -189,6 +209,117 @@ mod tests {
         assert_eq!(st.minutes, 23);
         assert_eq!(st.seconds, 45);
         assert_eq!(st.milliseconds, 678);
+    }
+
+    // ── SubTime::from_millisecond ─────────────────────────────────────────────
+
+    #[test]
+    fn from_millisecond_zero() {
+        let st = SubTime::from_millisecond(0);
+        assert_eq!(st.hours, 0);
+        assert_eq!(st.minutes, 0);
+        assert_eq!(st.seconds, 0);
+        assert_eq!(st.milliseconds, 0);
+    }
+
+    #[test]
+    fn from_millisecond_populates_fields_correctly() {
+        let ms = (1 * 3600 + 23 * 60 + 45) * 1_000 + 678;
+        let st = SubTime::from_millisecond(ms);
+        assert_eq!(st.hours, 1);
+        assert_eq!(st.minutes, 23);
+        assert_eq!(st.seconds, 45);
+        assert_eq!(st.milliseconds, 678);
+    }
+
+    #[test]
+    fn from_millisecond_milliseconds_only() {
+        let st = SubTime::from_millisecond(999);
+        assert_eq!(st.hours, 0);
+        assert_eq!(st.minutes, 0);
+        assert_eq!(st.seconds, 0);
+        assert_eq!(st.milliseconds, 999);
+    }
+
+    #[test]
+    fn from_millisecond_round_trips_with_to_millisecond() {
+        let original_ms = 4_567_890_u64;
+        let st = SubTime::from_millisecond(original_ms);
+        assert_eq!(st.to_millisecond(), original_ms);
+    }
+
+    // ── SubTime::add ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn add_basic() {
+        let a = SubTime::from_str("00:00:01.000").unwrap();
+        let b = SubTime::from_str("00:00:02.000").unwrap();
+        let result = a.add(b);
+        assert_eq!(result.to_millisecond(), 3_000);
+    }
+
+    #[test]
+    fn add_milliseconds_carry_into_seconds() {
+        let a = SubTime::from_str("00:00:00.600").unwrap();
+        let b = SubTime::from_str("00:00:00.700").unwrap();
+        let result = a.add(b);
+        assert_eq!(result.seconds, 1);
+        assert_eq!(result.milliseconds, 300);
+    }
+
+    #[test]
+    fn add_with_zero() {
+        let a = SubTime::from_str("01:23:45.678").unwrap();
+        let b = SubTime::from_millisecond(0);
+        let result = a.add(b);
+        assert_eq!(result.to_millisecond(), a.to_millisecond());
+    }
+
+    #[test]
+    fn add_hours_minutes_seconds() {
+        let a = SubTime::from_str("01:30:00.000").unwrap();
+        let b = SubTime::from_str("00:45:00.000").unwrap();
+        let result = a.add(b);
+        assert_eq!(result.hours, 2);
+        assert_eq!(result.minutes, 15);
+        assert_eq!(result.seconds, 0);
+        assert_eq!(result.milliseconds, 0);
+    }
+
+    // ── SubTime::sub ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn sub_basic() {
+        let a = SubTime::from_str("00:00:05.000").unwrap();
+        let b = SubTime::from_str("00:00:02.000").unwrap();
+        let result = a.sub(b).unwrap();
+        assert_eq!(result.to_millisecond(), 3_000);
+    }
+
+    #[test]
+    fn sub_result_is_zero() {
+        let a = SubTime::from_str("00:01:00.000").unwrap();
+        let b = SubTime::from_str("00:01:00.000").unwrap();
+        let result = a.sub(b).unwrap();
+        assert_eq!(result.to_millisecond(), 0);
+    }
+
+    #[test]
+    fn sub_milliseconds_borrow_from_seconds() {
+        let a = SubTime::from_str("00:00:01.000").unwrap();
+        let b = SubTime::from_str("00:00:00.300").unwrap();
+        let result = a.sub(b).unwrap();
+        assert_eq!(result.seconds, 0);
+        assert_eq!(result.milliseconds, 700);
+    }
+
+    #[test]
+    fn sub_underflow_returns_err() {
+        let a = SubTime::from_str("00:00:01.000").unwrap();
+        let b = SubTime::from_str("00:00:02.000").unwrap();
+        let result = a.sub(b);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "Subtitle timestamp cannot be negative");
     }
 
     // ── validate_time ────────────────────────────────────────────────────────
