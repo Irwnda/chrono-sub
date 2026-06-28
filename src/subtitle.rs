@@ -52,13 +52,11 @@ fn parse_time_to_ms(time: &str) -> Option<i64> {
 }
 
 fn adjustment_duration() -> String {
-    let time_regex = Regex::new(r"^\d{2}:\d{2}:\d{2}\.\d{2,3}$").unwrap();
-
     Text::new("Enter the adjustment duration:")
         .with_placeholder("hh:mm:ss.ms (e.g., 00:00:01.500 for 1.5 seconds)")
         .with_help_message("Format must be hours:minutes:seconds.milliseconds")
         .with_validator(move |input: &str| {
-            if time_regex.is_match(input) {
+            if validate_time(input) {
                 Ok(Validation::Valid)
             } else {
                 Ok(Validation::Invalid("Invalid format! Please use hh:mm:ss.ms".into()))
@@ -68,10 +66,15 @@ fn adjustment_duration() -> String {
         .unwrap()
 }
 
+fn validate_time(time: &str) -> bool {
+    let time_regex = Regex::new(r"^\d{2}:\d{2}:\d{2}\.\d{2,3}$").unwrap();
+
+    time_regex.is_match(time)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use regex::Regex;
 
     // ── parse_time_to_ms ─────────────────────────────────────────────────────
 
@@ -147,6 +150,23 @@ mod tests {
     #[test]
     fn parse_time_multiple_dots_returns_none() {
         assert_eq!(parse_time_to_ms("00:00:01.5.0"), None);
+    }
+
+
+    // ── validate_time ────────────────────────────────────────────────────────
+
+    #[test]
+    fn valid_time_format_accepted() {
+        assert!(validate_time("00:00:01.500"));
+        assert!(validate_time("01:30:00.00"));
+    }
+
+    #[test]
+    fn invalid_time_format_rejected() {
+        assert!(!validate_time("1:2:3"));
+        assert!(!validate_time("00:00:01"));
+        assert!(!validate_time("abc"));
+        assert!(!validate_time(""));
     }
 }
 
