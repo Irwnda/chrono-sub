@@ -1,8 +1,8 @@
-use chrono_sub::start;
+use chrono_sub::io;
 use std::process;
 
 fn main() {
-    if let Err(e) = start() {
+    if let Err(e) = io::start() {
         println!("Application error: {}", e);
         process::exit(1);
     }
