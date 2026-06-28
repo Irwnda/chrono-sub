@@ -18,9 +18,30 @@ pub fn process_file(file: PathBuf) {
         .unwrap()
         .index;
 
+    let time_adjustment = adjustment_duration();
+
+    println!("Adjusting by {}...", time_adjustment);
+
     match direction {
         0 => {},
         1 => {},
         _ => {}
     }
+}
+
+fn adjustment_duration() -> String {
+    let time_regex = Regex::new(r"^\d{2}:\d{2}:\d{2}\.\d{2,3}$").unwrap();
+
+    Text::new("Enter the adjustment duration:")
+        .with_placeholder("hh:mm:ss.ms (e.g., 00:00:01.500 for 1.5 seconds)")
+        .with_help_message("Format must be hours:minutes:seconds.milliseconds")
+        .with_validator(move |input: &str| {
+            if time_regex.is_match(input) {
+                Ok(Validation::Valid)
+            } else {
+                Ok(Validation::Invalid("Invalid format! Please use hh:mm:ss.ms".into()))
+            }
+        })
+        .prompt()
+        .unwrap()
 }
