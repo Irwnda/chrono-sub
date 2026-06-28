@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::LazyLock;
 use inquire::{Select, Text, validator::Validation};
 use regex::Regex;
 
@@ -66,10 +67,12 @@ fn adjustment_duration() -> String {
         .unwrap()
 }
 
-fn validate_time(time: &str) -> bool {
-    let time_regex = Regex::new(r"^\d{2}:\d{2}:\d{2}\.\d{2,3}$").unwrap();
+static TIME_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\d{2}:\d{2}:\d{2}\.\d{2,3}$").unwrap()
+});
 
-    time_regex.is_match(time)
+fn validate_time(time: &str) -> bool {
+    TIME_REGEX.is_match(time)
 }
 
 #[cfg(test)]
