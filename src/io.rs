@@ -2,19 +2,22 @@ use inquire::{Select, Text};
 use std::{env, error::Error, fs};
 use std::path::PathBuf;
 
-pub fn start() -> Result<(), Box<dyn Error>>{
+pub fn start() -> Result<PathBuf, Box<dyn Error>>{
     let options = vec![
         "Use current directory",
         "Enter a path",
         "Browse for a file"
     ];
 
-    let selected = Select::new("How would you like to select the target folder?", options).raw_prompt().unwrap().index;
+    let selected = Select::new("How would you like to select the target folder?", options)
+        .raw_prompt()
+        .unwrap()
+        .index;
 
     proceed(&selected)
 }
 
-fn proceed(option: &usize) -> Result<(), Box<dyn Error>>{
+fn proceed(option: &usize) -> Result<PathBuf, Box<dyn Error>>{
     let current_dir = env::current_dir()?;
     let mut target_path = match option {
         0 => current_dir,
@@ -33,9 +36,7 @@ fn proceed(option: &usize) -> Result<(), Box<dyn Error>>{
         target_path = browse_path(target_path);
     }
 
-    println!("Target path: {:?}", target_path);
-
-    Ok(())
+    Ok(target_path)
 }
 
 fn browse_path(mut current_dir: PathBuf) -> PathBuf {

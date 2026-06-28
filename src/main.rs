@@ -1,9 +1,14 @@
-use chrono_sub::io;
+use chrono_sub::{io, subtitle};
 use std::process;
 
 fn main() {
-    if let Err(e) = io::start() {
-        println!("Application error: {}", e);
-        process::exit(1);
+    match io::start() {
+        Ok(file) => {
+            subtitle::process_file(file);
+        },
+        Err(err) => {
+            println!("Application error: {}", err);
+            process::exit(1);
+        }
     }
 }
