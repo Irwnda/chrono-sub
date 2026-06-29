@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::sync::LazyLock;
+use crossterm::style::{style, Color, Stylize};
 use inquire::{Select, Text, validator::Validation};
 use regex::Regex;
 
@@ -9,6 +10,11 @@ struct SubTime {
     minutes: u64,
     seconds: u64,
     milliseconds: u64,
+}
+
+enum Direction {
+    Forward,
+    Backward,
 }
 
 impl SubTime {
@@ -56,20 +62,75 @@ impl SubTime {
         Self { hours, minutes, seconds, milliseconds }
     }
 
-    fn add(&self, other: SubTime) -> Self {
+    fn add(&self, other: &SubTime) -> Self {
         Self::from_millisecond(self.to_millisecond() + other.to_millisecond())
     }
 
-    fn sub(&self, other: SubTime) -> Result<Self, String> {
+    fn sub(&self, other: &SubTime) -> Result<Self, String> {
         if self.to_millisecond() < other.to_millisecond() {
             return Err(String::from("Subtitle timestamp cannot be negative"));
         }
 
         Ok(Self::from_millisecond(self.to_millisecond() - other.to_millisecond()))
     }
+
+    fn calculate(&self, other: &Self, direction: &Direction) -> Result<Self, String> {
+        match direction {
+            Direction::Forward => Ok(self.add(other)),
+            Direction::Backward => self.sub(other),
+        }
+    }
+
+    fn to_string(&self, mill_separator: char) -> String {
+        format!(
+            "{:02}:{:02}:{:02}{mill_separator}{:03}",
+            self.hours,
+            self.minutes,
+            self.seconds,
+            self.milliseconds
+        )
+    }
 }
 
-pub fn process_file(file: PathBuf) {
+pub fn process(file: PathBuf) {
+    let direction = prompt_direction();
+    let time_adjustment = adjustment_duration();
+
+    let sub_time = match SubTime::from_str(&time_adjustment) {
+        Some(st) => st,
+        None => {
+            println!(
+                "{}", style("❌ Invalid time format entered. Exiting.").with(Color::Red).bold()
+            );
+            return;
+        }
+    };
+
+    let separator = match separator(&file){
+        Some(s) => s,
+        None => {
+            println!(
+                "{}", style("❌ Invalid subtitle extension. Exiting.").with(Color::Red).bold()
+            );
+            return;
+        }
+    };
+    let sub_content = std::fs::read_to_string(file).unwrap();
+    let new_content = match transform_subtitle(
+        &sub_content,
+        &sub_time,
+        &direction,
+        separator
+    ) {
+        Ok(result) => result,
+        Err(e) => {
+            println!("{}", style(e).with(Color::Red).bold());
+            return;
+        }
+    };
+}
+
+fn prompt_direction() -> Direction {
     let direction_options = vec![
         "Slower (Delay subtitles / Shift Forward / +Time)",
         "Faster (Speed up subtitles / Shift Backward / -Time)",
@@ -80,17 +141,61 @@ pub fn process_file(file: PathBuf) {
         .unwrap()
         .index;
 
-    let time_adjustment = adjustment_duration();
+    match direction {
+        0 => Direction::Forward,
+        1 => Direction::Backward,
+        _ => Direction::Forward,
+    }
+}
 
-    println!("Adjusting by {}...", time_adjustment);
+fn separator(file: &PathBuf) -> Option<char> {
+    match file.extension() {
+        Some(ext) => {
+            let extension = ext.to_str().unwrap().to_lowercase();
+            if extension == "srt" {
+                Some('.')
+            } else if extension == "vtt" {
+                Some(',')
+            } else { None }
+        },
+        None => None
+    }
+}
 
-    let sub_time = match SubTime::from_str(&time_adjustment) {
-        Some(st) => st,
-        None => {
-            println!("❌ Invalid time format entered. Exiting.");
-            return;
+fn transform_subtitle(content: &str, sub_time: &SubTime, direction: &Direction, separator: char) -> Result<Vec<String>, String> {
+    let mut new_content: Vec<String> = vec![];
+
+    for line in content.lines() {
+        match extract_timestamp_line(line) {
+            Ok((start, end)) => {
+                let start_time = SubTime::from_str(start).unwrap();
+                let end_time = SubTime::from_str(end).unwrap();
+
+                let new_start_time = match start_time.calculate(&sub_time, &direction) {
+                    Ok(st) => st,
+                    Err(e) => return Err(e),
+                };
+                let new_end_time = match end_time.calculate(&sub_time, &direction) {
+                    Ok(st) => st,
+                    Err(e) => return Err(e),
+                };
+
+                let mut new_line = String::new();
+                new_line.push_str(&format!("{} -->", new_start_time.to_string(separator)));
+                new_line.push_str(&format!(" {}", new_end_time.to_string(separator)));
+                new_line.push('\n');
+            },
+            Err(_) => {
+                let mut new_line = String::new();
+                new_line.push_str(line);
+                new_line.push('\n');
+
+                new_content.push(new_line);
+            }
         }
-    };
+    }
+
+    Ok(new_content)
 }
 
 fn adjustment_duration() -> String {
@@ -114,6 +219,16 @@ static TIME_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 
 fn validate_time(time: &str) -> bool {
     TIME_REGEX.is_match(time)
+}
+
+fn extract_timestamp_line(line: &str) -> Result<(&str, &str), bool> {
+    if let Some((start, end)) = line.split_once("-->") {
+        if TIME_REGEX.is_match(start.trim()) && TIME_REGEX.is_match(end.trim()) {
+            return Ok((start.trim(), end.trim()));
+        }
+    }
+
+    Err(false)
 }
 
 #[cfg(test)]
@@ -254,7 +369,7 @@ mod tests {
     fn add_basic() {
         let a = SubTime::from_str("00:00:01.000").unwrap();
         let b = SubTime::from_str("00:00:02.000").unwrap();
-        let result = a.add(b);
+        let result = a.add(&b);
         assert_eq!(result.to_millisecond(), 3_000);
     }
 
@@ -262,7 +377,7 @@ mod tests {
     fn add_milliseconds_carry_into_seconds() {
         let a = SubTime::from_str("00:00:00.600").unwrap();
         let b = SubTime::from_str("00:00:00.700").unwrap();
-        let result = a.add(b);
+        let result = a.add(&b);
         assert_eq!(result.seconds, 1);
         assert_eq!(result.milliseconds, 300);
     }
@@ -271,7 +386,7 @@ mod tests {
     fn add_with_zero() {
         let a = SubTime::from_str("01:23:45.678").unwrap();
         let b = SubTime::from_millisecond(0);
-        let result = a.add(b);
+        let result = a.add(&b);
         assert_eq!(result.to_millisecond(), a.to_millisecond());
     }
 
@@ -279,7 +394,7 @@ mod tests {
     fn add_hours_minutes_seconds() {
         let a = SubTime::from_str("01:30:00.000").unwrap();
         let b = SubTime::from_str("00:45:00.000").unwrap();
-        let result = a.add(b);
+        let result = a.add(&b);
         assert_eq!(result.hours, 2);
         assert_eq!(result.minutes, 15);
         assert_eq!(result.seconds, 0);
@@ -292,7 +407,7 @@ mod tests {
     fn sub_basic() {
         let a = SubTime::from_str("00:00:05.000").unwrap();
         let b = SubTime::from_str("00:00:02.000").unwrap();
-        let result = a.sub(b).unwrap();
+        let result = a.sub(&b).unwrap();
         assert_eq!(result.to_millisecond(), 3_000);
     }
 
@@ -300,7 +415,7 @@ mod tests {
     fn sub_result_is_zero() {
         let a = SubTime::from_str("00:01:00.000").unwrap();
         let b = SubTime::from_str("00:01:00.000").unwrap();
-        let result = a.sub(b).unwrap();
+        let result = a.sub(&b).unwrap();
         assert_eq!(result.to_millisecond(), 0);
     }
 
@@ -308,7 +423,7 @@ mod tests {
     fn sub_milliseconds_borrow_from_seconds() {
         let a = SubTime::from_str("00:00:01.000").unwrap();
         let b = SubTime::from_str("00:00:00.300").unwrap();
-        let result = a.sub(b).unwrap();
+        let result = a.sub(&b).unwrap();
         assert_eq!(result.seconds, 0);
         assert_eq!(result.milliseconds, 700);
     }
@@ -317,9 +432,69 @@ mod tests {
     fn sub_underflow_returns_err() {
         let a = SubTime::from_str("00:00:01.000").unwrap();
         let b = SubTime::from_str("00:00:02.000").unwrap();
-        let result = a.sub(b);
+        let result = a.sub(&b);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "Subtitle timestamp cannot be negative");
+    }
+
+    // ── SubTime::to_string ───────────────────────────────────────────────────
+
+    #[test]
+    fn to_string_formats_correctly() {
+        let st = SubTime { hours: 1, minutes: 2, seconds: 3, milliseconds: 456 };
+        assert_eq!(st.to_string('.'), "01:02:03.456");
+        assert_eq!(st.to_string(','), "01:02:03,456");
+    }
+
+    // ── SubTime::calculate ───────────────────────────────────────────────────
+
+    #[test]
+    fn calculate_forward() {
+        let start = SubTime::from_str("00:00:01.000").unwrap();
+        let adjustment = SubTime::from_str("00:00:01.000").unwrap();
+        let result = start.calculate(&adjustment, &Direction::Forward).unwrap();
+        assert_eq!(result.to_millisecond(), 2000);
+    }
+
+    #[test]
+    fn calculate_backward() {
+        let start = SubTime::from_str("00:00:02.000").unwrap();
+        let adjustment = SubTime::from_str("00:00:01.000").unwrap();
+        let result = start.calculate(&adjustment, &Direction::Backward).unwrap();
+        assert_eq!(result.to_millisecond(), 1000);
+    }
+
+    // ── extract_timestamp_line ───────────────────────────────────────────────
+
+    #[test]
+    fn test_extract_timestamp_line_valid() {
+        let line = "00:00:01.000 --> 00:00:02.000";
+        assert_eq!(extract_timestamp_line(line), Ok(("00:00:01.000", "00:00:02.000")));
+    }
+
+    #[test]
+    fn test_extract_timestamp_line_invalid() {
+        assert!(extract_timestamp_line("not a timestamp").is_err());
+        assert!(extract_timestamp_line("00:00:01 --> invalid").is_err());
+    }
+
+    // ── transform_subtitle ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_transform_subtitle_valid() {
+        let content = "1\n00:00:01.000 --> 00:00:02.000\nHello";
+        let sub_time = SubTime::from_str("00:00:01.000").unwrap();
+        let result = transform_subtitle(content, &sub_time, &Direction::Forward, '.').unwrap();
+        assert!(result.len() > 0);
+    }
+
+    // ── separator ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_separator_detection() {
+        assert_eq!(separator(&PathBuf::from("test.srt")), Some('.'));
+        assert_eq!(separator(&PathBuf::from("test.vtt")), Some(','));
+        assert_eq!(separator(&PathBuf::from("test.txt")), None);
     }
 
     // ── validate_time ────────────────────────────────────────────────────────

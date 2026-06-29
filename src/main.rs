@@ -7,7 +7,7 @@ fn main() {
         Ok(file) => {
             println!("Selected file: {}", style(file.display()).with(Color::Green).bold());
 
-            subtitle::process_file(file);
+            subtitle::process(file);
         },
         Err(err) => {
             println!("Application error: {}", err);
