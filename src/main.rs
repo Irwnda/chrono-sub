@@ -1,8 +1,10 @@
-use chrono_sub::{io, subtitle};
+use chrono_sub::{args, io, subtitle};
 use crossterm::style::{Color, Stylize, style};
 use std::process;
 
 fn main() {
+    args::parse();
+
     match io::start() {
         Ok(file) => {
             println!(

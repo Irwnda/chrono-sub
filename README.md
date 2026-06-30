@@ -102,6 +102,15 @@ ChronoSub features an interactive interface that guides you through the adjustme
 chrono-sub
 ```
 
+### Command-Line Options
+
+```bash
+chrono-sub --version    # Show version information
+chrono-sub -V           # Short form for version
+chrono-sub --help       # Show help message
+chrono-sub -h           # Short form for help
+```
+
 ### Step-by-Step Walkthrough
 
 **1. Select your subtitle file**
