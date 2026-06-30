@@ -8,7 +8,7 @@ license = "MIT"
 repository = "https://github.com/Irwnda/chrono-sub"
 readme = "README.md"
 keywords = ["subtitle", "srt", "vtt", "timestamp", "synchronization"]
-categories = ["command-line-utilities", "parser-tools"]
+categories = ["command-line-utilities"]
 homepage = "https://github.com/Irwnda/chrono-sub"
 
 [dependencies]
