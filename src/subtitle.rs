@@ -1,9 +1,9 @@
+use crossterm::style::{Color, Stylize, style};
+use inquire::{Select, Text, validator::Validation};
+use regex::Regex;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
-use crossterm::style::{style, Color, Stylize};
-use inquire::{Select, Text, validator::Validation};
-use regex::Regex;
 
 #[derive(Debug)]
 struct SubTime {
@@ -29,10 +29,14 @@ impl SubTime {
         let clean = time_str.trim();
         let parts: Vec<&str> = clean.splitn(2, |c| c == '.' || c == ',').collect();
 
-        if parts.len() != 2 { return None };
+        if parts.len() != 2 {
+            return None;
+        };
 
         let hms_parts: Vec<&str> = parts[0].split(':').collect();
-        if hms_parts.len() != 3 { return None };
+        if hms_parts.len() != 3 {
+            return None;
+        };
 
         let hours = hms_parts[0].parse::<u64>().ok()?;
         let minutes = hms_parts[1].parse::<u64>().ok()?;
@@ -66,7 +70,12 @@ impl SubTime {
         let seconds = total_s % 60;
         let milliseconds = ms % 1000;
 
-        Self { hours, minutes, seconds, milliseconds }
+        Self {
+            hours,
+            minutes,
+            seconds,
+            milliseconds,
+        }
     }
 
     fn add(&self, other: &SubTime) -> Self {
@@ -78,7 +87,9 @@ impl SubTime {
             return Err(String::from("Subtitle timestamp cannot be negative"));
         }
 
-        Ok(Self::from_millisecond(self.to_millisecond() - other.to_millisecond()))
+        Ok(Self::from_millisecond(
+            self.to_millisecond() - other.to_millisecond(),
+        ))
     }
 
     fn calculate(&self, other: &Self, direction: &Direction) -> Result<Self, String> {
@@ -91,10 +102,7 @@ impl SubTime {
     fn to_string(&self, mill_separator: char) -> String {
         format!(
             "{:02}:{:02}:{:02}{mill_separator}{:03}",
-            self.hours,
-            self.minutes,
-            self.seconds,
-            self.milliseconds
+            self.hours, self.minutes, self.seconds, self.milliseconds
         )
     }
 }
@@ -107,28 +115,29 @@ pub fn process(file: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
         Some(st) => st,
         None => {
             println!(
-                "{}", style("❌ Invalid time format entered. Exiting.").with(Color::Red).bold()
+                "{}",
+                style("❌ Invalid time format entered. Exiting.")
+                    .with(Color::Red)
+                    .bold()
             );
             return Err("Invalid time format".into());
         }
     };
 
-    let separator = match separator(&file){
+    let separator = match separator(&file) {
         Some(s) => s,
         None => {
             println!(
-                "{}", style("❌ Invalid subtitle extension. Exiting.").with(Color::Red).bold()
+                "{}",
+                style("❌ Invalid subtitle extension. Exiting.")
+                    .with(Color::Red)
+                    .bold()
             );
             return Err("Invalid subtitle extension".into());
         }
     };
     let (sub_content, encoding) = read_subtitle_file(&file)?;
-    let new_content = match transform_subtitle(
-        &sub_content,
-        &sub_time,
-        &direction,
-        separator
-    ) {
+    let new_content = match transform_subtitle(&sub_content, &sub_time, &direction, separator) {
         Ok(result) => result,
         Err(e) => {
             println!("{}", style(&e).with(Color::Red).bold());
@@ -164,10 +173,13 @@ fn prompt_direction() -> Direction {
         "Faster (Speed up subtitles / Shift Backward / -Time)",
     ];
 
-    let direction = Select::new("Do you want to make the subtitles faster or slower?", direction_options)
-        .raw_prompt()
-        .unwrap()
-        .index;
+    let direction = Select::new(
+        "Do you want to make the subtitles faster or slower?",
+        direction_options,
+    )
+    .raw_prompt()
+    .unwrap()
+    .index;
 
     match direction {
         0 => Direction::Forward,
@@ -184,13 +196,20 @@ fn separator(file: &PathBuf) -> Option<char> {
                 Some(',')
             } else if extension == "vtt" {
                 Some('.')
-            } else { None }
-        },
-        None => None
+            } else {
+                None
+            }
+        }
+        None => None,
     }
 }
 
-fn transform_subtitle(content: &str, sub_time: &SubTime, direction: &Direction, separator: char) -> Result<Vec<String>, String> {
+fn transform_subtitle(
+    content: &str,
+    sub_time: &SubTime,
+    direction: &Direction,
+    separator: char,
+) -> Result<Vec<String>, String> {
     let mut new_content: Vec<String> = vec![];
 
     for line in content.lines() {
@@ -213,7 +232,7 @@ fn transform_subtitle(content: &str, sub_time: &SubTime, direction: &Direction, 
                 new_line.push_str(&format!(" {}", new_end_time.to_string(separator)));
 
                 new_content.push(new_line);
-            },
+            }
             Err(_) => {
                 let mut new_line = String::new();
                 new_line.push_str(line);
@@ -229,21 +248,24 @@ fn transform_subtitle(content: &str, sub_time: &SubTime, direction: &Direction, 
 fn adjustment_duration() -> String {
     Text::new("Enter the adjustment duration:")
         .with_placeholder("hh:mm:ss,ms (e.g., 00:00:01,500 for 1.5 seconds)")
-        .with_help_message("Format must be hours:minutes:seconds,milliseconds (or you can use . for milliseconds)")
+        .with_help_message(
+            "Format must be hours:minutes:seconds,milliseconds (or you can use . for milliseconds)",
+        )
         .with_validator(move |input: &str| {
             if validate_time(input) {
                 Ok(Validation::Valid)
             } else {
-                Ok(Validation::Invalid("Invalid format! Please use hh:mm:ss.ms".into()))
+                Ok(Validation::Invalid(
+                    "Invalid format! Please use hh:mm:ss.ms".into(),
+                ))
             }
         })
         .prompt()
         .unwrap()
 }
 
-static TIME_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^\d{2}:\d{2}:\d{2}[.,]\d{2,3}$").unwrap()
-});
+static TIME_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^\d{2}:\d{2}:\d{2}[.,]\d{2,3}$").unwrap());
 
 fn validate_time(time: &str) -> bool {
     TIME_REGEX.is_match(time)
@@ -266,29 +288,36 @@ fn prompt_naming(file: &PathBuf) -> PathBuf {
         "Replace the original file",
         "Give it a completely custom name",
     ];
-    let naming_choice = Select::new("How would you like to name the output file?", naming_options)
-        .raw_prompt()
-        .unwrap()
-        .index;
+    let naming_choice = Select::new(
+        "How would you like to name the output file?",
+        naming_options,
+    )
+    .raw_prompt()
+    .unwrap()
+    .index;
 
     let file_stem = file.file_stem().unwrap().to_str().unwrap();
     let extension = file.extension().unwrap().to_str().unwrap();
     let output_name = match naming_choice {
         0 => {
-            let suffix = Text::new("Enter suffix:").with_default("_adjusted").prompt().unwrap();
-            format!("{}{}.{}", file_stem, suffix, extension)
-        },
-        1 => {
-            let prefix = Text::new("Enter prefix:").with_default("adjusted_").prompt().unwrap();
-            format!("{}{}.{}", prefix, file_stem, extension)
-        },
-        2 => file_stem.to_string(),
-        _ => {
-            Text::new("Enter completely new filename (with extension):")
-                .with_default(&format!("{}_new.{}", file_stem, extension))
+            let suffix = Text::new("Enter suffix:")
+                .with_default("_adjusted")
                 .prompt()
-                .unwrap()
+                .unwrap();
+            format!("{}{}.{}", file_stem, suffix, extension)
         }
+        1 => {
+            let prefix = Text::new("Enter prefix:")
+                .with_default("adjusted_")
+                .prompt()
+                .unwrap();
+            format!("{}{}.{}", prefix, file_stem, extension)
+        }
+        2 => file_stem.to_string(),
+        _ => Text::new("Enter completely new filename (with extension):")
+            .with_default(&format!("{}_new.{}", file_stem, extension))
+            .prompt()
+            .unwrap(),
     };
 
     let directory = file.parent().unwrap_or_else(|| Path::new("."));
@@ -308,11 +337,11 @@ fn save_file(file: &PathBuf, content: &Vec<String>, encoding: Encoding) {
                 out.extend_from_slice(&unit.to_le_bytes());
             }
             out
-        },
+        }
         Encoding::Windows1252 => {
             let (encoded, _, _) = encoding_rs::WINDOWS_1252.encode(&text);
             encoded.into_owned()
-        },
+        }
     };
 
     fs::write(location, bytes).unwrap();
@@ -528,7 +557,12 @@ mod tests {
 
     #[test]
     fn to_string_formats_correctly() {
-        let st = SubTime { hours: 1, minutes: 2, seconds: 3, milliseconds: 456 };
+        let st = SubTime {
+            hours: 1,
+            minutes: 2,
+            seconds: 3,
+            milliseconds: 456,
+        };
         assert_eq!(st.to_string('.'), "01:02:03.456");
         assert_eq!(st.to_string(','), "01:02:03,456");
     }
@@ -556,7 +590,10 @@ mod tests {
     #[test]
     fn test_extract_timestamp_line_valid() {
         let line = "00:00:01.000 --> 00:00:02.000";
-        assert_eq!(extract_timestamp_line(line), Ok(("00:00:01.000", "00:00:02.000")));
+        assert_eq!(
+            extract_timestamp_line(line),
+            Ok(("00:00:01.000", "00:00:02.000"))
+        );
     }
 
     #[test]
@@ -600,4 +637,3 @@ mod tests {
         assert!(!validate_time(""));
     }
 }
-

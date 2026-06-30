@@ -1,13 +1,9 @@
 use inquire::{Select, Text};
-use std::{env, error::Error, fs};
 use std::path::PathBuf;
+use std::{env, error::Error, fs};
 
-pub fn start() -> Result<PathBuf, Box<dyn Error>>{
-    let options = vec![
-        "Use current directory",
-        "Enter a path",
-        "Browse for a file"
-    ];
+pub fn start() -> Result<PathBuf, Box<dyn Error>> {
+    let options = vec!["Use current directory", "Enter a path", "Browse for a file"];
 
     let selected = Select::new("How would you like to select the target folder?", options)
         .raw_prompt()
@@ -17,7 +13,7 @@ pub fn start() -> Result<PathBuf, Box<dyn Error>>{
     proceed(&selected)
 }
 
-fn proceed(option: &usize) -> Result<PathBuf, Box<dyn Error>>{
+fn proceed(option: &usize) -> Result<PathBuf, Box<dyn Error>> {
     let current_dir = env::current_dir()?;
     let mut target_path = match option {
         0 => current_dir,
@@ -27,9 +23,9 @@ fn proceed(option: &usize) -> Result<PathBuf, Box<dyn Error>>{
                 .prompt()
                 .unwrap_or_else(|_| String::from("."));
             PathBuf::from(path_str.trim())
-        },
+        }
         2 => browse_path(current_dir),
-        _ => return Err("Invalid option".into())
+        _ => return Err("Invalid option".into()),
     };
 
     if !target_path.is_file() {
@@ -49,17 +45,17 @@ fn browse_path(mut current_dir: PathBuf) -> PathBuf {
                 if let Some(parent) = current_dir.parent() {
                     current_dir = parent.to_path_buf();
                 }
-            },
+            }
             Ok(choice) if choice.ends_with("/") => {
                 let clean_name = choice.trim_end_matches('/');
                 current_dir.push(clean_name);
-            },
+            }
             Ok(choice) => {
                 return current_dir.join(choice);
-            },
+            }
             _ => {
                 println!("Browsing cancelled. Defaulting to current folder.");
-                break
+                break;
             }
         }
     }
@@ -92,7 +88,6 @@ fn choice_from_dir(dir: &PathBuf) -> Vec<String> {
 
     choices
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -131,39 +126,54 @@ mod tests {
         let choices = choice_from_dir(&root);
         assert!(
             choices.contains(&String::from("subdir/")),
-            "Expected 'subdir/' in choices, got: {:?}", choices
+            "Expected 'subdir/' in choices, got: {:?}",
+            choices
         );
     }
 
     #[test]
     fn choice_from_dir_includes_srt_files() {
         let dir = make_temp_dir("chronosub_test_srt");
-        File::create(dir.join("subtitle.srt")).unwrap().write_all(b"").unwrap();
+        File::create(dir.join("subtitle.srt"))
+            .unwrap()
+            .write_all(b"")
+            .unwrap();
 
         let choices = choice_from_dir(&dir);
         assert!(
             choices.contains(&String::from("subtitle.srt")),
-            "Expected 'subtitle.srt' in choices, got: {:?}", choices
+            "Expected 'subtitle.srt' in choices, got: {:?}",
+            choices
         );
     }
 
     #[test]
     fn choice_from_dir_includes_vtt_files() {
         let dir = make_temp_dir("chronosub_test_vtt");
-        File::create(dir.join("subtitle.vtt")).unwrap().write_all(b"").unwrap();
+        File::create(dir.join("subtitle.vtt"))
+            .unwrap()
+            .write_all(b"")
+            .unwrap();
 
         let choices = choice_from_dir(&dir);
         assert!(
             choices.contains(&String::from("subtitle.vtt")),
-            "Expected 'subtitle.vtt' in choices, got: {:?}", choices
+            "Expected 'subtitle.vtt' in choices, got: {:?}",
+            choices
         );
     }
 
     #[test]
     fn choice_from_dir_excludes_unsupported_extensions() {
         let dir = make_temp_dir("chronosub_test_exclude");
-        File::create(dir.join("video.mp4")).unwrap().write_all(b"").unwrap();
-        File::create(dir.join("notes.txt")).unwrap().write_all(b"").unwrap();
+        File::create(dir.join("video.mp4"))
+            .unwrap()
+            .write_all(b"")
+            .unwrap();
+        File::create(dir.join("notes.txt"))
+            .unwrap()
+            .write_all(b"")
+            .unwrap();
 
         let choices = choice_from_dir(&dir);
         assert!(
@@ -179,7 +189,10 @@ mod tests {
     #[test]
     fn choice_from_dir_excludes_files_without_extension() {
         let dir = make_temp_dir("chronosub_test_no_ext");
-        File::create(dir.join("Makefile")).unwrap().write_all(b"").unwrap();
+        File::create(dir.join("Makefile"))
+            .unwrap()
+            .write_all(b"")
+            .unwrap();
 
         let choices = choice_from_dir(&dir);
         assert!(
@@ -191,12 +204,16 @@ mod tests {
     #[test]
     fn choice_from_dir_extension_match_is_case_insensitive() {
         let dir = make_temp_dir("chronosub_test_case");
-        File::create(dir.join("CAPS.SRT")).unwrap().write_all(b"").unwrap();
+        File::create(dir.join("CAPS.SRT"))
+            .unwrap()
+            .write_all(b"")
+            .unwrap();
 
         let choices = choice_from_dir(&dir);
         assert!(
             choices.contains(&String::from("CAPS.SRT")),
-            "Expected 'CAPS.SRT' (uppercase extension) in choices, got: {:?}", choices
+            "Expected 'CAPS.SRT' (uppercase extension) in choices, got: {:?}",
+            choices
         );
     }
 }
