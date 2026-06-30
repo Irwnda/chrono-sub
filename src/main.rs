@@ -10,7 +10,7 @@ fn main() {
                 style(file.display()).with(Color::Green).bold()
             );
 
-            subtitle::process(file);
+            let _ = subtitle::process(file);
         }
         Err(err) => {
             println!("Application error: {}", err);

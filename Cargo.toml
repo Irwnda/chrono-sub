@@ -2,6 +2,14 @@
 name = "chrono-sub"
 version = "0.1.0"
 edition = "2024"
+description = "An intuitive CLI tool for synchronizing subtitle files with millisecond precision"
+authors = ["Irwnda"]
+license = "MIT"
+repository = "https://github.com/Irwnda/chrono-sub"
+readme = "README.md"
+keywords = ["subtitle", "srt", "vtt", "timestamp", "synchronization"]
+categories = ["command-line-utilities", "parser-tools"]
+homepage = "https://github.com/Irwnda/chrono-sub"
 
 [dependencies]
 crossterm = "0.29.0"
