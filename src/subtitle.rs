@@ -27,7 +27,7 @@ enum Direction {
 impl SubTime {
     fn from_str(time_str: &str) -> Option<Self> {
         let clean = time_str.trim();
-        let parts: Vec<&str> = clean.splitn(2, |c| c == '.' || c == ',').collect();
+        let parts: Vec<&str> = clean.splitn(2, ['.', ',']).collect();
 
         if parts.len() != 2 {
             return None;
@@ -145,7 +145,8 @@ pub fn process(file: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    Ok(save_file(&file, &new_content, encoding))
+    save_file(&file, &new_content, encoding);
+    Ok(())
 }
 
 fn read_subtitle_file(file: &PathBuf) -> Result<(String, Encoding), Box<dyn std::error::Error>> {
@@ -188,7 +189,7 @@ fn prompt_direction() -> Direction {
     }
 }
 
-fn separator(file: &PathBuf) -> Option<char> {
+fn separator(file: &Path) -> Option<char> {
     match file.extension() {
         Some(ext) => {
             let extension = ext.to_str().unwrap().to_lowercase();
@@ -218,14 +219,8 @@ fn transform_subtitle(
                 let start_time = SubTime::from_str(start).unwrap();
                 let end_time = SubTime::from_str(end).unwrap();
 
-                let new_start_time = match start_time.calculate(&sub_time, &direction) {
-                    Ok(st) => st,
-                    Err(e) => return Err(e),
-                };
-                let new_end_time = match end_time.calculate(&sub_time, &direction) {
-                    Ok(st) => st,
-                    Err(e) => return Err(e),
-                };
+                let new_start_time = start_time.calculate(sub_time, direction)?;
+                let new_end_time = end_time.calculate(sub_time, direction)?;
 
                 let mut new_line = String::new();
                 new_line.push_str(&format!("{} -->", new_start_time.to_string(separator)));
@@ -272,16 +267,17 @@ fn validate_time(time: &str) -> bool {
 }
 
 fn extract_timestamp_line(line: &str) -> Result<(&str, &str), bool> {
-    if let Some((start, end)) = line.split_once("-->") {
-        if TIME_REGEX.is_match(start.trim()) && TIME_REGEX.is_match(end.trim()) {
-            return Ok((start.trim(), end.trim()));
-        }
+    if let Some((start, end)) = line.split_once("-->")
+        && TIME_REGEX.is_match(start.trim())
+        && TIME_REGEX.is_match(end.trim())
+    {
+        return Ok((start.trim(), end.trim()));
     }
 
     Err(false)
 }
 
-fn prompt_naming(file: &PathBuf) -> PathBuf {
+fn prompt_naming(file: &Path) -> PathBuf {
     let naming_options = vec![
         "Add a suffix (e.g., filename_adjusted.srt)",
         "Add a prefix (e.g., adjusted_filename.srt)",
@@ -325,7 +321,7 @@ fn prompt_naming(file: &PathBuf) -> PathBuf {
     directory.join(output_name)
 }
 
-fn save_file(file: &PathBuf, content: &Vec<String>, encoding: Encoding) {
+fn save_file(file: &Path, content: &[String], encoding: Encoding) {
     let location = prompt_naming(file);
     let text = content.join("\n");
 

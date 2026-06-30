@@ -66,21 +66,20 @@ fn browse_path(mut current_dir: PathBuf) -> PathBuf {
 fn choice_from_dir(dir: &PathBuf) -> Vec<String> {
     let mut choices = vec![String::from(".. (Go Up)")];
 
-    if let Ok(entries) = fs::read_dir(&dir) {
+    if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             if let Ok(file_type) = entry.file_type() {
-                if file_type.is_dir() {
-                    if let Some(name) = entry.file_name().to_str() {
-                        choices.push(format!("{}/", name))
-                    }
+                if file_type.is_dir()
+                    && let Some(name) = entry.file_name().to_str()
+                {
+                    choices.push(format!("{}/", name))
                 }
 
-                if file_type.is_file() {
-                    if let Some(ext) = entry.path().extension() {
-                        if ["srt", "vtt"].contains(&ext.to_str().unwrap().to_lowercase().as_str()) {
-                            choices.push(format!("{}", entry.file_name().to_str().unwrap()))
-                        }
-                    }
+                if file_type.is_file()
+                    && let Some(ext) = entry.path().extension()
+                    && ["srt", "vtt"].contains(&ext.to_str().unwrap().to_lowercase().as_str())
+                {
+                    choices.push(entry.file_name().to_str().unwrap().to_string())
                 }
             }
         }
