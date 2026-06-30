@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Command-line flags for quick information access:
+  - `--version` / `-V` - Display version information
+  - `--help` / `-h` - Display help message
+
+### Changed
+- Refactored argument parsing into dedicated `args` module for better code organization
+- Refactored subtitle processing into modular structure (`/subtitle/mod.rs`):
+  - `encoding.rs` - Character encoding detection and preservation
+  - `time.rs` - Time parsing and arithmetic operations
+  - `transform.rs` - Subtitle timestamp transformation logic
+  - `prompt.rs` - Interactive user prompts for subtitle operations
+  - `mod.rs` - Module orchestration and exports
+
 ## [1.0.0] - 2026-06-30
 
 ### Added
@@ -30,9 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [1.1.0] - Potential Future Release (Roadmap)
 
-### Potential Features (Roadmap)
+### Planned Features
 - [ ] Batch processing support for multiple files
 - [ ] Support for additional subtitle formats (ASS, SSA, SUB, etc.)
 - [ ] Preview mode showing affected subtitles before applying changes
