@@ -5,5 +5,7 @@ edition = "2024"
 
 [dependencies]
 crossterm = "0.29.0"
+encoding_rs = "0.8.35"
+encoding_rs_io = "0.1.7"
 inquire = "0.9.4"
 regex = "1.12.4"

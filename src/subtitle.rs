@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use crossterm::style::{style, Color, Stylize};
 use inquire::{Select, Text, validator::Validation};
@@ -92,7 +93,7 @@ impl SubTime {
     }
 }
 
-pub fn process(file: PathBuf) {
+pub fn process(file: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     let direction = prompt_direction();
     let time_adjustment = adjustment_duration();
 
@@ -102,7 +103,7 @@ pub fn process(file: PathBuf) {
             println!(
                 "{}", style("❌ Invalid time format entered. Exiting.").with(Color::Red).bold()
             );
-            return;
+            return Err("Invalid time format".into());
         }
     };
 
@@ -112,10 +113,10 @@ pub fn process(file: PathBuf) {
             println!(
                 "{}", style("❌ Invalid subtitle extension. Exiting.").with(Color::Red).bold()
             );
-            return;
+            return Err("Invalid subtitle extension".into());
         }
     };
-    let sub_content = std::fs::read_to_string(file).unwrap();
+    let sub_content = read_subtitle_file(&file)?;
     let new_content = match transform_subtitle(
         &sub_content,
         &sub_time,
@@ -124,10 +125,31 @@ pub fn process(file: PathBuf) {
     ) {
         Ok(result) => result,
         Err(e) => {
-            println!("{}", style(e).with(Color::Red).bold());
-            return;
+            println!("{}", style(&e).with(Color::Red).bold());
+            return Err(e.into());
         }
     };
+
+    Ok(save_file(&file, &new_content))
+}
+
+fn read_subtitle_file(file: &PathBuf) -> Result<String, Box<dyn std::error::Error>> {
+    let bytes = fs::read(file)?;
+
+    if let Ok(s) = std::str::from_utf8(&bytes) {
+        return Ok(s.to_string());
+    }
+
+    if bytes.starts_with(&[0xFF, 0xFE]) {
+        let utf16: Vec<u16> = bytes[2..]
+            .chunks_exact(2)
+            .map(|c| u16::from_le_bytes([c[0], c[1]]))
+            .collect();
+        return Ok(String::from_utf16(&utf16)?);
+    }
+
+    let (decoded, _, _) = encoding_rs::WINDOWS_1252.decode(&bytes);
+    Ok(decoded.into_owned())
 }
 
 fn prompt_direction() -> Direction {
@@ -183,12 +205,10 @@ fn transform_subtitle(content: &str, sub_time: &SubTime, direction: &Direction, 
                 let mut new_line = String::new();
                 new_line.push_str(&format!("{} -->", new_start_time.to_string(separator)));
                 new_line.push_str(&format!(" {}", new_end_time.to_string(separator)));
-                new_line.push('\n');
             },
             Err(_) => {
                 let mut new_line = String::new();
                 new_line.push_str(line);
-                new_line.push('\n');
 
                 new_content.push(new_line);
             }
@@ -229,6 +249,49 @@ fn extract_timestamp_line(line: &str) -> Result<(&str, &str), bool> {
     }
 
     Err(false)
+}
+
+fn prompt_naming(file: &PathBuf) -> PathBuf {
+    let naming_options = vec![
+        "Add a suffix (e.g., filename_adjusted.srt)",
+        "Add a prefix (e.g., adjusted_filename.srt)",
+        "Replace the original file",
+        "Give it a completely custom name",
+    ];
+    let naming_choice = Select::new("How would you like to name the output file?", naming_options)
+        .raw_prompt()
+        .unwrap()
+        .index;
+
+    let file_stem = file.file_stem().unwrap().to_str().unwrap();
+    let extension = file.extension().unwrap().to_str().unwrap();
+    let output_name = match naming_choice {
+        0 => {
+            let suffix = Text::new("Enter suffix:").with_default("_adjusted").prompt().unwrap();
+            format!("{}{}.{}", file_stem, suffix, extension)
+        },
+        1 => {
+            let prefix = Text::new("Enter prefix:").with_default("adjusted_").prompt().unwrap();
+            format!("{}{}.{}", prefix, file_stem, extension)
+        },
+        2 => file_stem.to_string(),
+        _ => {
+            Text::new("Enter completely new filename (with extension):")
+                .with_default(&format!("{}_new.{}", file_stem, extension))
+                .prompt()
+                .unwrap()
+        }
+    };
+
+    let directory = file.parent().unwrap_or_else(|| Path::new("."));
+
+    directory.join(output_name)
+}
+
+fn save_file(file: &PathBuf, content: &Vec<String>) {
+    let location = prompt_naming(file);
+
+    fs::write(location, content.join("\n")).unwrap();
 }
 
 #[cfg(test)]
