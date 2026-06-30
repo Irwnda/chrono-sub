@@ -35,7 +35,33 @@ ChronoSub is perfect for situations like:
 
 ## 📦 Installation
 
-### From Source
+### Option 1: Install from crates.io (Recommended)
+
+The easiest way to install ChronoSub is directly from crates.io:
+
+```bash
+cargo install chrono-sub
+```
+
+This will:
+- Download the latest stable release (v1.0.0)
+- Compile the binary optimized for your system
+- Install it globally in your Cargo binary directory (~/.cargo/bin/)
+
+**After installation:**
+1. Make sure `~/.cargo/bin` is in your PATH
+2. Run `chrono-sub` from anywhere
+
+**To update to the latest version:**
+```bash
+cargo install chrono-sub --force
+```
+
+---
+
+### Option 2: Install from Source
+
+If you prefer to build from source or need the development version:
 
 ```bash
 # Clone the repository
@@ -46,7 +72,27 @@ cd chrono-sub
 cargo build --release
 
 # The binary will be available at target/release/chrono-sub
+
+# Optional: Install globally
+cargo install --path .
 ```
+
+---
+
+### Verifying Installation
+
+After installation, verify that ChronoSub is installed correctly:
+
+```bash
+chrono-sub --version
+```
+
+Or simply run:
+```bash
+chrono-sub
+```
+
+This will start the interactive interface if installation was successful.
 
 ## 🚀 Usage
 
@@ -116,6 +162,179 @@ Both formats use 24-hour notation with:
 - Minutes: 00-59
 - Seconds: 00-59
 - Milliseconds: 000-999
+
+## 📖 Complete Guide
+
+### Understanding Subtitle Synchronization
+
+Subtitle timing issues typically fall into two categories:
+
+1. **Subtitles appear too early** → Use "Slower" (Shift Forward) to add time
+2. **Subtitles appear too late** → Use "Faster" (Shift Backward) to subtract time
+
+### How to Determine the Adjustment Amount
+
+**Method 1: Visual Check**
+1. Play your video with subtitles
+2. Find a clear reference point (e.g., dialogue, sound effect)
+3. Note when the subtitle appears vs. when it should appear
+4. Use that difference as your adjustment value
+
+**Method 2: Trial and Error**
+1. Start with a small adjustment (±500ms)
+2. Test the result
+3. Adjust incrementally until synchronized
+
+### Common Scenarios
+
+#### Scenario 1: Movie Downloaded from Internet
+
+**Problem:** Downloaded subtitles appear 2-3 seconds early
+
+**Solution:**
+```
+Direction: Slower (Shift Forward)
+Time: 00:00:02,500
+```
+
+**Why:** Downloaded subtitles may be from different versions (theatrical vs. director's cut) or have been encoded with different timing offsets.
+
+---
+
+#### Scenario 2: Edited Video
+
+**Problem:** After cutting intro from video, all subtitles are 45 seconds late
+
+**Solution:**
+```
+Direction: Faster (Shift Backward)
+Time: 00:00:45,000
+```
+
+**Why:** Removing content from the beginning shifts all timestamps forward.
+
+---
+
+#### Scenario 3: Frame Rate Conversion
+
+**Problem:** Converted video from 24fps to 25fps, subtitles drift progressively
+
+**Solution:** This requires percentage-based adjustment. For each hour of video:
+- 24fps → 25fps: Subtitles play ~4% faster
+- Adjust approximately: 00:01:30,000 per hour (slower)
+
+**Note:** ChronoSub applies fixed time adjustments. For frame rate issues, you may need specialized tools or calculate cumulative adjustments.
+
+---
+
+#### Scenario 4: Encoding Issues
+
+**Problem:** Subtitles have strange characters or won't load
+
+**Solution:** ChronoSub automatically detects and preserves encoding (UTF-8, UTF-16 LE, Windows-1252). If issues persist:
+1. Check source file encoding with: `file -I subtitle.srt`
+2. Ensure your video player supports the encoding
+3. Convert to UTF-8 if needed using: `iconv`
+
+---
+
+#### Scenario 5: Multiple Adjustments
+
+**Problem:** First attempt wasn't perfect, need to fine-tune
+
+**Solution:**
+1. Start with your best estimate
+2. Apply adjustment to create `subtitle_adjusted.srt`
+3. Test with your video
+4. If still off, adjust `subtitle_adjusted.srt` again
+5. Repeat until perfect
+
+**Tip:** Keep copies at each stage so you can backtrack if needed
+
+---
+
+### Time Format Quick Reference
+
+| Component | Range | Format |
+|-----------|-------|--------|
+| Hours | 00-23 | 2 digits |
+| Minutes | 00-59 | 2 digits |
+| Seconds | 00-59 | 2 digits |
+| Milliseconds | 000-999 | 3 digits |
+
+**Separators:**
+- **SRT files**: Use comma (`00:01:23,456`)
+- **VTT files**: Use period (`00:01:23.456`)
+
+**Common Mistakes:**
+- ❌ `0:01:23,456` (single digit hours)
+- ❌ `00:1:23,456` (single digit minutes)
+- ❌ `00:01:23,45` (2 digit milliseconds)
+- ✅ `00:01:23,456` (correct!)
+
+---
+
+### Troubleshooting
+
+#### Issue: "Invalid time format" error
+
+**Check:**
+- [ ] All components have correct digit counts
+- [ ] Separator matches file type (comma for SRT, period for VTT)
+- [ ] No extra spaces or characters
+- [ ] Values are within valid ranges
+
+---
+
+#### Issue: Adjusted file has wrong encoding
+
+**Solution:** ChronoSub preserves original encoding. If you see issues:
+1. Verify original file encoding
+2. Ensure your text editor supports that encoding
+3. Consider converting source to UTF-8 first
+
+---
+
+#### Issue: Subtitles still don't sync after adjustment
+
+**Possible causes:**
+1. **Non-linear offset**: Some parts need different adjustments than others
+   - *Solution:* May need to split file and adjust sections separately
+
+2. **Speed/frame rate mismatch**: Video plays at different speed than subtitles expect
+   - *Solution:* Requires time-stretching, not simple shifting
+
+3. **Incorrect reference point**: Initial estimate was wrong
+   - *Solution:* Try multiple reference points throughout the video
+
+4. **Corrupted subtitle file**: Timestamps are malformed
+   - *Solution:* Validate subtitle file format first
+
+---
+
+### Best Practices
+
+1. **Always backup originals**: Keep `filename.srt.bak` before adjusting
+2. **Test incrementally**: Start small, adjust gradually
+3. **Use descriptive names**: Rename output to indicate adjustment (e.g., `movie_+2.5s.srt`)
+4. **Verify at multiple points**: Check sync at beginning, middle, and end
+5. **Document your process**: Note what worked for future reference
+
+### Tips for Specific Use Cases
+
+**For TV Series:**
+- Episodes often have consistent offsets within a season
+- Once you find the right offset for one episode, try it on others
+- Save different offsets for different sources (Web-DL, Blu-ray, etc.)
+
+**For Language Learners:**
+- Keep dual subtitle files with different offsets if needed
+- Smaller adjustments (±200ms) can significantly improve comprehension
+
+**For Content Creators:**
+- Export subtitles from your editor first to check baseline timing
+- Apply ChronoSub adjustments as final post-processing step
+- Test on multiple video players before publishing
 
 ## 🛠️ Development
 
