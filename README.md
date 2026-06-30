@@ -3,10 +3,13 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-2024-orange.svg)](https://www.rust-lang.org/)
 [![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+[![crates.io](https://img.shields.io/badge/crates.io-v1.0.0-orange.svg)](https://crates.io/crates/chrono-sub)
 
 > An intuitive CLI tool for synchronizing subtitle files with millisecond precision
 
 **ChronoSub** is a command-line utility that helps you fix out-of-sync subtitle files by shifting timestamps forward or backward. Whether your subtitles appear too early or too late, ChronoSub makes it easy to synchronize them perfectly with your video content.
+
+**📖 [View Changelog](CHANGELOG.md)** - See what's new in each version
 
 ## ✨ Features
 
@@ -482,6 +485,7 @@ SOFTWARE.
 
 ## 📞 Support
 
+- **Changelog**: [CHANGELOG.md](CHANGELOG.md) - See what's changed in each version
 - **Issues**: [GitHub Issues](https://github.com/Irwnda/chrono-sub/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/Irwnda/chrono-sub/discussions)
 
