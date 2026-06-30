@@ -21,7 +21,7 @@ enum Direction {
 impl SubTime {
     fn from_str(time_str: &str) -> Option<Self> {
         let clean = time_str.trim();
-        let parts: Vec<&str> = clean.split('.').collect();
+        let parts: Vec<&str> = clean.splitn(2, |c| c == '.' || c == ',').collect();
 
         if parts.len() != 2 { return None };
 
@@ -175,9 +175,9 @@ fn separator(file: &PathBuf) -> Option<char> {
         Some(ext) => {
             let extension = ext.to_str().unwrap().to_lowercase();
             if extension == "srt" {
-                Some('.')
-            } else if extension == "vtt" {
                 Some(',')
+            } else if extension == "vtt" {
+                Some('.')
             } else { None }
         },
         None => None
@@ -205,6 +205,8 @@ fn transform_subtitle(content: &str, sub_time: &SubTime, direction: &Direction, 
                 let mut new_line = String::new();
                 new_line.push_str(&format!("{} -->", new_start_time.to_string(separator)));
                 new_line.push_str(&format!(" {}", new_end_time.to_string(separator)));
+
+                new_content.push(new_line);
             },
             Err(_) => {
                 let mut new_line = String::new();
@@ -220,8 +222,8 @@ fn transform_subtitle(content: &str, sub_time: &SubTime, direction: &Direction, 
 
 fn adjustment_duration() -> String {
     Text::new("Enter the adjustment duration:")
-        .with_placeholder("hh:mm:ss.ms (e.g., 00:00:01.500 for 1.5 seconds)")
-        .with_help_message("Format must be hours:minutes:seconds.milliseconds")
+        .with_placeholder("hh:mm:ss,ms (e.g., 00:00:01,500 for 1.5 seconds)")
+        .with_help_message("Format must be hours:minutes:seconds,milliseconds (or you can use . for milliseconds)")
         .with_validator(move |input: &str| {
             if validate_time(input) {
                 Ok(Validation::Valid)
@@ -234,7 +236,7 @@ fn adjustment_duration() -> String {
 }
 
 static TIME_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^\d{2}:\d{2}:\d{2}\.\d{2,3}$").unwrap()
+    Regex::new(r"^\d{2}:\d{2}:\d{2}[.,]\d{2,3}$").unwrap()
 });
 
 fn validate_time(time: &str) -> bool {
@@ -555,8 +557,8 @@ mod tests {
 
     #[test]
     fn test_separator_detection() {
-        assert_eq!(separator(&PathBuf::from("test.srt")), Some('.'));
-        assert_eq!(separator(&PathBuf::from("test.vtt")), Some(','));
+        assert_eq!(separator(&PathBuf::from("test.srt")), Some(','));
+        assert_eq!(separator(&PathBuf::from("test.vtt")), Some('.'));
         assert_eq!(separator(&PathBuf::from("test.txt")), None);
     }
 
