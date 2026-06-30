@@ -13,6 +13,12 @@ struct SubTime {
     milliseconds: u64,
 }
 
+enum Encoding {
+    Utf8,
+    Utf16Le,
+    Windows1252,
+}
+
 enum Direction {
     Forward,
     Backward,
@@ -116,7 +122,7 @@ pub fn process(file: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
             return Err("Invalid subtitle extension".into());
         }
     };
-    let sub_content = read_subtitle_file(&file)?;
+    let (sub_content, encoding) = read_subtitle_file(&file)?;
     let new_content = match transform_subtitle(
         &sub_content,
         &sub_time,
@@ -130,26 +136,26 @@ pub fn process(file: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    Ok(save_file(&file, &new_content))
+    Ok(save_file(&file, &new_content, encoding))
 }
 
-fn read_subtitle_file(file: &PathBuf) -> Result<String, Box<dyn std::error::Error>> {
+fn read_subtitle_file(file: &PathBuf) -> Result<(String, Encoding), Box<dyn std::error::Error>> {
     let bytes = fs::read(file)?;
-
-    if let Ok(s) = std::str::from_utf8(&bytes) {
-        return Ok(s.to_string());
-    }
 
     if bytes.starts_with(&[0xFF, 0xFE]) {
         let utf16: Vec<u16> = bytes[2..]
             .chunks_exact(2)
             .map(|c| u16::from_le_bytes([c[0], c[1]]))
             .collect();
-        return Ok(String::from_utf16(&utf16)?);
+        return Ok((String::from_utf16(&utf16)?, Encoding::Utf16Le));
+    }
+
+    if let Ok(s) = std::str::from_utf8(&bytes) {
+        return Ok((s.to_string(), Encoding::Utf8));
     }
 
     let (decoded, _, _) = encoding_rs::WINDOWS_1252.decode(&bytes);
-    Ok(decoded.into_owned())
+    Ok((decoded.into_owned(), Encoding::Windows1252))
 }
 
 fn prompt_direction() -> Direction {
@@ -290,10 +296,26 @@ fn prompt_naming(file: &PathBuf) -> PathBuf {
     directory.join(output_name)
 }
 
-fn save_file(file: &PathBuf, content: &Vec<String>) {
+fn save_file(file: &PathBuf, content: &Vec<String>, encoding: Encoding) {
     let location = prompt_naming(file);
+    let text = content.join("\n");
 
-    fs::write(location, content.join("\n")).unwrap();
+    let bytes: Vec<u8> = match encoding {
+        Encoding::Utf8 => text.into_bytes(),
+        Encoding::Utf16Le => {
+            let mut out = vec![0xFF, 0xFE]; // BOM
+            for unit in text.encode_utf16() {
+                out.extend_from_slice(&unit.to_le_bytes());
+            }
+            out
+        },
+        Encoding::Windows1252 => {
+            let (encoded, _, _) = encoding_rs::WINDOWS_1252.encode(&text);
+            encoded.into_owned()
+        },
+    };
+
+    fs::write(location, bytes).unwrap();
 }
 
 #[cfg(test)]
