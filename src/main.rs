@@ -18,7 +18,10 @@ fn main() {
             }
         }
         Err(err) => {
-            println!("Application error: {}", style(format!("❌ {}", err)).with(Color::Red).bold());
+            println!(
+                "Application error: {}",
+                style(format!("❌ {}", err)).with(Color::Red).bold()
+            );
             process::exit(1);
         }
     }
