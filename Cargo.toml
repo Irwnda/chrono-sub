@@ -1,6 +1,6 @@
 [package]
 name = "chrono-sub"
-version = "1.1.0"
+version = "1.1.1"
 edition = "2024"
 description = "An intuitive CLI tool for synchronizing subtitle files with millisecond precision"
 authors = ["Irwnda"]
