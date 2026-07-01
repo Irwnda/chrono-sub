@@ -29,8 +29,12 @@ pub(crate) fn read_subtitle_file(
     Ok((decoded.into_owned(), Encoding::Windows1252))
 }
 
-pub(crate) fn save_file(file: &Path, content: &[String], encoding: Encoding) {
-    let location = prompt::prompt_naming(file);
+pub(crate) fn save_file(
+    file: &Path,
+    content: &[String],
+    encoding: Encoding,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let location = prompt::prompt_naming(file)?;
     let text = content.join("\n");
 
     let bytes: Vec<u8> = match encoding {
@@ -48,5 +52,6 @@ pub(crate) fn save_file(file: &Path, content: &[String], encoding: Encoding) {
         }
     };
 
-    fs::write(location, bytes).unwrap();
+    fs::write(location, bytes)?;
+    Ok(())
 }

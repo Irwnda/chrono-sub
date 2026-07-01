@@ -14,8 +14,8 @@ pub(crate) fn transform_subtitle(
     for line in content.lines() {
         match extract_timestamp_line(line) {
             Ok((start, end)) => {
-                let start_time = SubTime::from_str(start).unwrap();
-                let end_time = SubTime::from_str(end).unwrap();
+                let start_time = SubTime::from_str(start).ok_or("Invalid time format")?;
+                let end_time = SubTime::from_str(end).ok_or("Invalid time format")?;
 
                 let new_start_time = start_time.calculate(sub_time, direction)?;
                 let new_end_time = end_time.calculate(sub_time, direction)?;
@@ -50,18 +50,11 @@ fn extract_timestamp_line(line: &str) -> Result<(&str, &str), bool> {
 }
 
 pub(crate) fn separator(file: &Path) -> Option<char> {
-    match file.extension() {
-        Some(ext) => {
-            let extension = ext.to_str().unwrap().to_lowercase();
-            if extension == "srt" {
-                Some(',')
-            } else if extension == "vtt" {
-                Some('.')
-            } else {
-                None
-            }
-        }
-        None => None,
+    let extension = file.extension()?.to_str()?.to_lowercase();
+    match extension.as_str() {
+        "srt" => Some(','),
+        "vtt" => Some('.'),
+        _ => None,
     }
 }
 

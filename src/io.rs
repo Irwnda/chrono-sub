@@ -5,10 +5,12 @@ use std::{env, error::Error, fs};
 pub fn start() -> Result<PathBuf, Box<dyn Error>> {
     let options = vec!["Use current directory", "Enter a path", "Browse for a file"];
 
-    let selected = Select::new("How would you like to select the target folder?", options)
+    let selected = match Select::new("How would you like to select the target folder?", options)
         .raw_prompt()
-        .unwrap()
-        .index;
+    {
+        Ok(choice) => choice.index,
+        Err(_) => return Err("Failed to get file to edit".into()),
+    };
 
     proceed(&selected)
 }
@@ -77,9 +79,11 @@ fn choice_from_dir(dir: &PathBuf) -> Vec<String> {
 
                 if file_type.is_file()
                     && let Some(ext) = entry.path().extension()
-                    && ["srt", "vtt"].contains(&ext.to_str().unwrap().to_lowercase().as_str())
+                    && let Some(ext_str) = ext.to_str()
+                    && ["srt", "vtt"].contains(&ext_str.to_lowercase().as_str())
+                    && let Some(name) = entry.file_name().to_str()
                 {
-                    choices.push(entry.file_name().to_str().unwrap().to_string())
+                    choices.push(name.to_string())
                 }
             }
         }
