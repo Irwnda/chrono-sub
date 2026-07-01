@@ -9,6 +9,8 @@
 
 **ChronoSub** is a command-line utility that helps you fix out-of-sync subtitle files by shifting timestamps forward or backward. Whether your subtitles appear too early or too late, ChronoSub makes it easy to synchronize them perfectly with your video content.
 
+[![asciicast](https://asciinema.org/a/1259723.svg)](https://asciinema.org/a/1259723)
+
 **📖 [View Changelog](CHANGELOG.md)** - See what's new in each version
 
 ## ✨ Features

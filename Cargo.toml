@@ -11,8 +11,19 @@ keywords = ["subtitle", "srt", "vtt", "timestamp", "synchronization"]
 categories = ["command-line-utilities"]
 homepage = "https://github.com/Irwnda/chrono-sub"
 
+[package.metadata.wix]
+upgrade-guid = "DA9400C0-F8FE-4D62-A069-7E83A0BC9189"
+path-guid = "4D71C15E-61FC-42DC-933C-F9311AA4D858"
+license = false
+eula = false
+
 [dependencies]
 crossterm = "0.29.0"
 encoding_rs = "0.8.35"
 inquire = "0.9.4"
 regex = "1.12.4"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
