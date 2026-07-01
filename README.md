@@ -406,7 +406,6 @@ ChronoSub/
 
 - `crossterm` - Terminal styling and colors
 - `encoding_rs` - Character encoding detection
-- `encoding_rs_io` - I/O operations with encoding support
 - `inquire` - Interactive command-line prompts
 - `regex` - Regular expression pattern matching
 
